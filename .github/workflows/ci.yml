@@ -1,0 +1,48 @@
+# PR을 올리거나 main에 합칠 때 자동으로 검사
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  flutter:
+    name: Flutter 분석·테스트
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: 빈 .env 만들기 (실제 키는 CI에 넣지 않음)
+        run: cp .env.example .env
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test
+
+  database:
+    name: Supabase 스키마·보안 정책 테스트
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: 마이그레이션 적용 + 30개 보안·제약조건 검사
+        run: |
+          createdb ootd_test
+          psql -d ootd_test -v ON_ERROR_STOP=1 -q -f supabase/tests/00_supabase_stub.sql
+          psql -d ootd_test -v ON_ERROR_STOP=1 -q -f supabase/migrations/20261026000000_init_schema.sql
+          psql -d ootd_test -v ON_ERROR_STOP=1 -q -f supabase/tests/10_rls_checks.sql

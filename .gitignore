@@ -1,0 +1,41 @@
+# ===== 비밀 정보 (절대 올리지 않기) =====
+.env
+*.keystore
+*.jks
+key.properties
+
+# ===== Flutter / Dart =====
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+coverage/
+
+# ===== Android =====
+android/.gradle/
+android/local.properties
+android/app/debug
+android/app/profile
+android/app/release
+*.iml
+
+# ===== iOS / macOS =====
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+**/xcuserdata/
+**/DerivedData/
+
+# ===== IDE / OS =====
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ===== AI 학습 데이터 (용량이 커서 제외, 모델 파일 .tflite 는 올림) =====
+ai_training/data/
