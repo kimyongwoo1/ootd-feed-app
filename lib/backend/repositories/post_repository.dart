@@ -127,7 +127,7 @@ class PostRepository {
         }
 
         // 4) 저장된 글을 닉네임 등과 함께 다시 읽어 반환
-        return getPost(postId!);
+        return getPost(postId);
       });
 
   /// 게시글 수정 (본인 글만 가능 — RLS 가 보장). null 인 항목은 바꾸지 않는다.
