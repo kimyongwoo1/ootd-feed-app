@@ -9,11 +9,12 @@ class SupabaseConfig {
   static Future<void> init() async {
     await dotenv.load(fileName: '.env');
     final url = dotenv.env['SUPABASE_URL'];
-    final anonKey = dotenv.env['SUPABASE_ANON_KEY'];
-    if (url == null || url.isEmpty || anonKey == null || anonKey.isEmpty) {
-      throw StateError('.env 에 SUPABASE_URL / SUPABASE_ANON_KEY 가 없습니다.');
+    // 대시보드의 publishable 키(sb_publishable_...) 또는 예전 anon 키 둘 다 사용 가능
+    final key = dotenv.env['SUPABASE_PUBLISHABLE_KEY'] ?? dotenv.env['SUPABASE_ANON_KEY'];
+    if (url == null || url.isEmpty || key == null || key.isEmpty) {
+      throw StateError('.env 에 SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY 가 없습니다.');
     }
-    await Supabase.initialize(url: url, anonKey: anonKey);
+    await Supabase.initialize(url: url, publishableKey: key);
   }
 
   static SupabaseClient get client => Supabase.instance.client;

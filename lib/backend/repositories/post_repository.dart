@@ -96,6 +96,7 @@ class PostRepository {
               fileOptions: FileOptions(contentType: contentType, upsert: false),
             );
 
+        int? postId;
         try {
           // 2) 게시글 저장 (작성자 UID·작성 시간은 DB 기본값으로 자동 입력)
           final inserted = await _db
@@ -108,18 +109,25 @@ class PostRepository {
               })
               .select('id')
               .single();
-          final postId = (inserted['id'] as num).toInt();
+          postId = (inserted['id'] as num).toInt();
 
           // 3) 옷 태그 저장
           if (clothingTags.isNotEmpty) {
-            await _db.from('clothing_tags').insert(clothingTags.map((t) => t.toInsert(postId)).toList());
+            await _db.from('clothing_tags').insert(clothingTags.map((t) => t.toInsert(postId!)).toList());
           }
-          return getPost(postId);
         } catch (_) {
-          // 글 저장에 실패하면 올려둔 사진을 지워 Storage 에 쓰레기 파일이 남지 않게 한다.
-          await _db.storage.from(SupabaseConfig.imageBucket).remove([path]).catchError((_) => <FileObject>[]);
+          // 중간에 실패하면 만들어진 글과 올려둔 사진을 지워 반쪽짜리 게시글이 남지 않게 한다.
+          try {
+            if (postId != null) await _db.from('posts').delete().eq('id', postId);
+            await _db.storage.from(SupabaseConfig.imageBucket).remove([path]);
+          } catch (_) {
+            // 정리 실패는 무시하고 원래 오류를 전달
+          }
           rethrow;
         }
+
+        // 4) 저장된 글을 닉네임 등과 함께 다시 읽어 반환
+        return getPost(postId!);
       });
 
   /// 게시글 수정 (본인 글만 가능 — RLS 가 보장). null 인 항목은 바꾸지 않는다.
