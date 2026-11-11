@@ -1,0 +1,19 @@
+# 실제 설정 키 — 절대 커밋하지 않기 (.env.example 은 올려도 됨)
+.env
+!.env.example
+
+# Flutter 빌드·캐시 (실행하면 자동으로 다시 생김)
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+**/ephemeral/
+**/android/local.properties
+**/android/.gradle/
+**/ios/Pods/
+
+# 편집기
+.idea/
+*.iml
+.vscode/
+.DS_Store
