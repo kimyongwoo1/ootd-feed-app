@@ -3,7 +3,7 @@
 MP1의 미니 피드 앱에 **Supabase**를 연결해, 기기 A에서 쓴 글이 서버에 저장되고 기기 B에서 새로고침하면 그 글이 보이도록 만들었습니다.
 사용자는 **익명 인증**으로만 구분하며, 이메일·전화번호 등 개인정보는 받지 않습니다.
 
-## 1. 선택한 BaaS와 이유 — Supabase
+## 선택한 BaaS와 이유 — Supabase
 
 | 비교 | Firebase (Firestore) | Supabase | 선택 이유 |
 |---|---|---|---|
@@ -12,7 +12,7 @@ MP1의 미니 피드 앱에 **Supabase**를 연결해, 기기 A에서 쓴 글이
 | 익명 인증 | 지원 | 지원 | 둘 다 가능 |
 | 팀 프로젝트 | — | OOTD 피드 앱 백엔드로 이미 사용 중 | 같은 프로젝트에서 이어서 확장 가능 |
 
-## 2. 익명 인증 방식
+## 익명 인증 방식
 
 1. 앱이 켜지면 `auth.signInAnonymously()` 로 **익명 로그인**합니다. 회원가입·이메일·전화번호 입력이 없습니다.
 2. Supabase가 기기마다 다른 **익명 사용자 ID(uuid)** 를 발급하고, 세션은 기기에 저장되어 앱을 다시 켜도 같은 ID가 유지됩니다.
@@ -20,7 +20,7 @@ MP1의 미니 피드 앱에 **Supabase**를 연결해, 기기 A에서 쓴 글이
 4. RLS 정책으로 **로그인한 사용자만 읽기**, **본인 ID로만 쓰기**가 가능합니다. 수정·삭제 정책은 없으므로 앱에서 수정·삭제할 수 없습니다.
 5. 피드 상단에 `익명 ID 1a2b3c4d` (앞 8자리)를 표시해, 두 기기가 서로 다른 사용자임을 스크린샷에서 확인할 수 있습니다. 내가 쓴 글에는 `내 글` 표시가 붙습니다.
 
-## 3. 백엔드 설정 절차 (Supabase)
+## 백엔드 설정 절차 (Supabase)
 
 1. [supabase.com](https://supabase.com) 로그인 → **New project** 생성 (이미 있는 프로젝트를 써도 됩니다)
 2. **익명 로그인 켜기**: Authentication → Sign In / Providers → **Allow anonymous sign-ins** 켜기 → Save
@@ -53,46 +53,77 @@ MP1의 미니 피드 앱에 **Supabase**를 연결해, 기기 A에서 쓴 글이
 | `content` | varchar(200) | 내용 1~200자 (공백만 있는 글은 DB가 거부) |
 | `created_at` | timestamptz | 작성 시각 (서버 시간) |
 
-## 4. 실행 절차
+## 실행 절차
+
+- 프레임워크/SDK: **Flutter 3.47.5 (stable) / Dart 3.13.4**
+- 패키지: `supabase_flutter`, `flutter_dotenv` (버전은 `app/pubspec.lock` 에 고정)
+- 실행 기기: **Chrome 웹 브라우저 2개 창** (Windows PC). 기기 A = 일반 창, 기기 B = 시크릿 창 → 서로 다른 익명 사용자. Android 에뮬레이터 2대로도 실행 가능
+- 잠금 파일 포함: `app/pubspec.lock`, `app/android/gradle/wrapper/gradle-wrapper.properties`
+- 먼저 위 "백엔드 설정 절차"로 SQL 실행과 `app/.env` 만들기를 합니다.
 
 ```bash
-# 0) 위 3번의 백엔드 설정과 app/.env 만들기를 먼저 합니다
 cd app
 flutter pub get
-flutter run -d chrome        # 또는 에뮬레이터: flutter run -d emulator-5554
-flutter test                 # 선택: 가짜 서버로 화면 동작 테스트
+flutter run -d web-server --web-port 8080
+# 기기 A: Chrome 일반 창에서 http://localhost:8080
+# 기기 B: Chrome 시크릿 창에서 http://localhost:8080
 ```
 
-### 두 기기 동기화 확인 방법
+테스트 (선택, 가짜 서버 사용 — 네트워크 불필요)
 
-| 방법 | 기기 A | 기기 B |
-|---|---|---|
-| 에뮬레이터 2개 | `flutter run -d emulator-5554` | `flutter run -d emulator-5556` |
-| PC 하나로 | `flutter run -d chrome` 로 열린 창 | 같은 주소를 **시크릿 창**(또는 Edge)에서 열기 → 다른 익명 ID |
+```bash
+flutter test
+```
 
-1. 기기 A에서 ✎ → 글 작성 → [게시] → A 피드 맨 위에 `내 글` 로 표시
-2. 기기 B에서 피드를 **아래로 당기거나** 오른쪽 위 ↻ 버튼 → A의 글이 나타남
-3. Supabase → Table Editor → `mini_posts` 에서 같은 글이 저장된 것을 확인
+## 확인 방법
 
-### 작성 실패(네트워크 오류) 처리
+### 두 기기 동기화
+
+- 조작: 기기 A에서 ✎ → 닉네임·내용 입력 → [게시]한 뒤, 기기 B에서 피드를 아래로 당기거나 ↻ 버튼을 누른다
+- 기대 결과: 기기 A 피드 맨 위에 새 글이 `내 글` 표시와 함께 추가되고, 기기 B에서 새로고침하면 같은 글이 맨 위에 보인다. 두 기기 피드 위의 익명 ID가 서로 다르다. Supabase Table Editor의 `mini_posts` 에도 같은 글이 저장된다
+- 스크린샷: 01_deviceA_compose.png, 02_deviceB_synced.png, 03_supabase_data.png
+
+### 익명 인증·개인정보 수집 없음
+
+- 조작: 앱을 실행하고 피드 위의 익명 ID를 확인한다. `app/lib/services/post_repository.dart` 의 `signIn()` 을 확인한다
+- 기대 결과: 회원가입·이메일·전화번호 입력 없이 `signInAnonymously()` 로 자동 로그인되고, 테이블에는 익명 ID(uuid)·닉네임·내용·시각만 저장된다
+- 스크린샷: 02_deviceB_synced.png, 03_supabase_data.png
+
+### 작성 실패 안내
+
+- 조작: Chrome 개발자 도구(F12) → Network → Offline 으로 바꾼 뒤 글을 게시하거나 새로고침한다
+- 기대 결과: 앱이 꺼지지(크래시) 않고 "인터넷 연결을 확인해 주세요" 안내와 [다시 시도]가 표시되며, 입력한 글은 지워지지 않는다
+- 스크린샷: 04_post_error.png
+
+### 설정 키 분리
+
+- 조작: 제출물에서 `.env.example` 과 `app/lib/main.dart` 를 확인한다
+- 기대 결과: URL·키가 소스에 하드코딩되어 있지 않고 `.env` 에서 읽는다. 제출물에는 플레이스홀더만 있는 `.env.example` 만 있고 실제 키가 든 `.env` 는 없다
+- 스크린샷: (없음 — 파일로 확인)
+
+시험 데이터: app/supabase/mini_posts.sql (실행하면 예시 글 3개가 들어감) + 확인 중 직접 작성한 글
+
+네트워크: 온라인 필요 (작성 실패 안내는 개발자 도구의 Offline 모드로 확인)
+
+**참고 — 실패 상황별 앱 동작**
 
 | 상황 | 앱 동작 |
 |---|---|
 | 처음 불러오기 실패 | 오류 안내 + **[다시 시도]** 버튼 |
 | 새로고침 실패 | 지금 보이던 목록은 그대로 두고 하단에 안내 |
-| 글 게시 실패 | "게시하지 못했어요. 인터넷 연결을 확인해 주세요." + **[다시 시도]**, 입력한 글은 지워지지 않음 |
+| 글 게시 실패 | "게시하지 못했어요. 인터넷 연결을 확인해 주세요." + **[다시 시도]**, 입력한 글 유지 |
 | 응답이 10초 넘게 없음 | 시간 초과로 처리하고 같은 안내 |
 | 게시 중 | 버튼 대신 로딩 표시 → 중복 게시 방지 |
 
-확인 방법: Chrome 개발자 도구(F12) → Network → **Offline** 으로 바꾼 뒤 게시해 봅니다.
-
-## 5. 평가 기준 확인
+## 평가 기준 확인
 
 - [x] 두 기기 간 게시글 동기화가 스크린샷으로 확인된다. → `screenshots/`
 - [x] 익명 인증만 사용하며 이메일·전화번호 등 개인정보 수집 코드가 없다.
-- [x] 설정 키가 `.env` 로 분리되어 있고(`.env.example` 만 제출), 작성 실패 안내가 처리되어 있다.
+- [x] 작성 실패 시 크래시 없이 안내한다.
+- [x] 설정 키 하드코딩 없이 `.env` 로 분리했고, `.env.example` 만 제출한다.
+- [x] README에 BaaS 선택·익명 인증·백엔드 설정·확인 방법·실행 절차 절이 있다.
 
-## 6. MP1에서 바뀐 점
+## MP1에서 바뀐 점
 
 | 파일 | 변경 |
 |---|---|

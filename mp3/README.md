@@ -3,7 +3,7 @@
 MP2(Supabase 서버 동기화) 앱에 **좋아요·댓글**을 더해 사용자끼리 반응을 주고받을 수 있게 했습니다.
 SNS가 꼭 갖춰야 할 안전장치인 **게시글 신고**와 **커뮤니티 가이드라인**(`GUIDELINES.md`)도 함께 만들었습니다.
 
-## 1. 전체 기능 목록
+## 전체 기능 목록
 
 | 단계 | 기능 | 설명 |
 |---|---|---|
@@ -21,7 +21,7 @@ SNS가 꼭 갖춰야 할 안전장치인 **게시글 신고**와 **커뮤니티 
 | **MP3** | **신고 후 숨김** | 신고한 글은 내 피드에서 바로 숨김. 서로 다른 3명이 신고하면 모두에게 임시 숨김 |
 | **MP3** | **가이드라인** | 금지 콘텐츠, 신고 처리 원칙, 데이터 노출 범위 → `GUIDELINES.md` |
 
-## 2. 상호작용 데이터 구조
+## 상호작용 데이터 구조
 
 ```
 mini_posts (게시글) ─┬─< mini_post_likes (좋아요)   한 사람 × 한 글 = 1개
@@ -90,9 +90,7 @@ mini_posts (게시글) ─┬─< mini_post_likes (좋아요)   한 사람 × �
 
 노출 범위를 이렇게 정한 이유는 `GUIDELINES.md` 3장에 있습니다.
 
-## 3. 실행 절차
-
-### 3-1. 백엔드 설정 (Supabase)
+## 백엔드 설정 (Supabase)
 
 1. Supabase 프로젝트 → Authentication → Sign In / Providers → **Allow anonymous sign-ins** 켜기
 2. SQL Editor → `app/supabase/mini_posts.sql` 전체를 붙여넣고 **Run**
@@ -100,7 +98,7 @@ mini_posts (게시글) ─┬─< mini_post_likes (좋아요)   한 사람 × �
    - "destructive operation" 경고가 뜨면 **Run this query** (정책을 지웠다가 다시 만드는 줄 때문)
 3. Table Editor에 `mini_posts`, `mini_post_likes`, `mini_comments`, `mini_reports` 4개가 보이면 성공
 
-### 3-2. 설정 키
+### 설정 키
 
 `.env` 는 제출물에 없습니다. `app/.env.example` 을 복사해 `app/.env` 를 만들고 MP2와 같은 값을 넣습니다.
 
@@ -111,40 +109,74 @@ SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxx
 
 (MP2 폴더의 `app/.env` 를 그대로 복사해 와도 됩니다. `service_role`/secret 키는 절대 넣지 않습니다.)
 
-### 3-3. 실행
+## 실행 절차
+
+- 프레임워크/SDK: **Flutter 3.47.5 (stable) / Dart 3.13.4**
+- 패키지: `supabase_flutter`, `flutter_dotenv` (버전은 `app/pubspec.lock` 에 고정)
+- 실행 기기: **Chrome 웹 브라우저 2개 창** (Windows PC). 기기 A = 일반 창, 기기 B = 시크릿 창 → 서로 다른 익명 사용자. Android 에뮬레이터 2대로도 실행 가능
+- 잠금 파일 포함: `app/pubspec.lock`, `app/android/gradle/wrapper/gradle-wrapper.properties`
+- 먼저 위 "백엔드 설정"으로 SQL 실행과 `app/.env` 만들기를 합니다.
 
 ```bash
 cd app
 flutter pub get
-flutter run -d chrome
-flutter test        # 선택: 가짜 서버로 좋아요·댓글·신고 화면 테스트
+flutter run -d web-server --web-port 8080
+# 기기 A: Chrome 일반 창에서 http://localhost:8080
+# 기기 B: Chrome 시크릿 창에서 http://localhost:8080
 ```
 
-### 3-4. 두 기기 확인 방법
+테스트 (선택, 가짜 서버 사용 — 네트워크 불필요)
 
 ```bash
-flutter run -d web-server --web-port 8080
+flutter test
 ```
 
-- 기기 A: Chrome 일반 창 `http://localhost:8080`
-- 기기 B: Chrome **시크릿 창**(또는 Edge) 같은 주소 → 익명 ID가 다른 별도 사용자
-- 에뮬레이터 2개라면 `flutter run -d emulator-5554`, `flutter run -d emulator-5556`
+## 확인 방법
 
-| 확인 | 기기 A | 기기 B |
-|---|---|---|
-| 좋아요 동기화 | 글에 ♥ → 1 | 새로고침 → 같은 글 1 (하트는 빈 하트 = 내가 안 누름) |
-| 좋아요 중복 방지 | ♥ 다시 누르면 0, 또 누르면 1 (2가 되지 않음) | B도 누르면 2 |
-| 댓글 동기화 | 상세에서 댓글 작성 | 같은 글 상세에서 당겨서 새로고침 → 댓글 보임, 피드 댓글 수 증가 |
-| 신고 | B가 쓴 글 상세 → 🚩 → 사유 선택 → 신고하기 → 내 피드에서 사라짐 | (B 글은 B에게 계속 보임) |
-| 서버 기록 | Supabase → Table Editor → `mini_reports` 에 사유·설명·시각 저장 확인 | |
+### 좋아요 토글·중복 방지·동기화
 
-## 4. 평가 기준 확인
+- 조작: 기기 A에서 게시글의 ♥ 를 누르고, 한 번 더 누른 뒤 다시 누른다. 기기 B에서 피드를 아래로 당긴다
+- 기대 결과: 기기 A의 숫자가 0 → 1 → 0 → 1 로만 바뀌고 2 이상이 되지 않는다(중복 방지). 기기 B에서 새로고침하면 같은 글의 숫자가 1로 보이고, B의 하트는 빈 하트다
+- 스크린샷: 01_deviceA_like.png, 02_deviceB_like_synced.png
 
-- [x] 좋아요(중복 방지 포함)와 댓글이 동작하고 기기 간 동기화된다. → `screenshots/`
+### 댓글 작성·목록
+
+- 조작: 기기 A에서 게시글 상세 → 아래 입력창에 닉네임·댓글을 쓰고 ➤ 를 누른다. 기기 B에서 같은 글 상세를 열고 아래로 당긴다
+- 기대 결과: 기기 A의 댓글 목록 끝에 댓글이 추가되고 '댓글 N' 과 피드 카드의 댓글 수가 늘어난다. 기기 B에서도 같은 댓글이 목록에 보인다
+- 스크린샷: 03_deviceA_comment.png, 04_deviceB_comment_synced.png
+
+### 신고 사유 서버 기록
+
+- 조작: 다른 사람이 쓴 글의 상세 → 오른쪽 위 🚩 → 사유 하나 선택(필요하면 설명 입력) → [신고하기]. Supabase Table Editor에서 `mini_reports` 를 연다
+- 기대 결과: 사유를 고르기 전에는 [신고하기]가 비활성이고, 신고하면 "신고가 접수됐어요" 안내 후 그 글이 내 피드에서 사라진다. `mini_reports` 에 게시글 ID·사유·설명·시각이 저장된다. 같은 글을 다시 신고할 수 없다
+- 스크린샷: 05_report_reason.png, 06_report_done.png, 07_server_reports.png
+
+### 커뮤니티 가이드라인·민감정보 없음
+
+- 조작: 제출물의 `GUIDELINES.md` 와 소스·설정 파일을 확인한다
+- 기대 결과: `GUIDELINES.md` 에 금지 콘텐츠·신고 처리 원칙·상호작용 데이터 노출 범위와 이유가 있다. API 키·비밀번호가 소스에 없고 `app/.env.example`(플레이스홀더)만 있다
+- 스크린샷: (없음 — 파일로 확인)
+
+### 입력 데이터·스크린샷 개인정보 없음
+
+- 조작: 스크린샷과 확인 중 입력한 닉네임·글·댓글을 확인한다
+- 기대 결과: 가짜 닉네임과 코디 문장만 있고 실명·연락처·실제 인물 사진이 없다. 스크린샷의 브라우저 주소창·북마크 영역은 가렸다
+- 스크린샷: 01_deviceA_like.png ~ 07_server_reports.png
+
+시험 데이터: app/supabase/mini_posts.sql (실행하면 예시 글 3개가 들어감) + 확인 중 직접 작성한 글·댓글
+
+네트워크: 온라인 필요
+
+## 평가 기준 확인
+
+- [x] 좋아요 토글이 중복 없이 동작하고 기기 간 동기화된다. → `screenshots/`
 - [x] 신고 기능이 사유와 함께 서버에 기록된다. → `mini_reports`, `screenshots/`
-- [x] `GUIDELINES.md` 에 금지 콘텐츠·신고 처리 원칙·상호작용 데이터 노출 범위가 기술되어 있다.
+- [x] 댓글 작성·목록이 동작하고 기기 간 동기화된다.
+- [x] `GUIDELINES.md` 에 금지 콘텐츠·신고 처리 원칙·상호작용 데이터 노출 범위가 기술되어 있고, 민감정보가 없다.
+- [x] 입력 데이터와 스크린샷에 실제 개인정보가 없다.
+- [x] README에 실행 절차·확인 방법 절이 있다.
 
-## 5. MP2에서 바뀐 점
+## MP2에서 바뀐 점
 
 | 파일 | 변경 |
 |---|---|
